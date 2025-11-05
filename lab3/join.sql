@@ -126,6 +126,12 @@ on 1 = 1
 
 
 -- potrojne join
+select buyer_name, prod_name, qty
+from buyers b inner join sales s
+on b.buyer_id = s.buyer_id
+join Produce p
+on s.prod_id = p.prod_id
+
 -- używając desing query in editor (crtl+shift+q)
 SELECT   Buyers.buyer_name, Produce.prod_name, Sales.qty
 FROM      Buyers INNER JOIN
@@ -133,3 +139,49 @@ FROM      Buyers INNER JOIN
                 Produce ON Sales.prod_id = Produce.prod_id
 
 -- koniec lab 3
+
+-- lab 4
+
+select distinct productname
+from orders as o
+    inner join [order details] as od
+        on o.orderid = od.orderid
+    inner join Products as p
+        on od.ProductID = p.ProductID
+where orderdate = '1996-07-08'
+
+-- suma zbiorów - UNION
+-- część wspólna – INTERSECT
+-- różnica – EXCEPT
+
+select firstname + ' ' + lastname as name,city, postalcode, 'pr' kto  
+from employees  
+union  
+select companyname, city, postalcode, 'kl'
+from customers
+
+select 'a'
+union 
+select 'a'
+
+-- prosta suma zbioru 1 i 2, z duplikatami
+select 'a'
+union all 
+select 'a'
+
+select name, city, postalcode from
+(select cast(EmployeeID as varchar) as ID, firstname + ' ' + lastname as name,city, postalcode, 'pr' kto  
+from employees  
+union  
+select customerID, companyname, city, postalcode, 'kl'
+from customers) t
+-- cast - zmienia typ (w pierwszej intiger, w drugiej char)
+
+select country from customers  
+intersect  -- zarówno
+select country from suppliers
+
+select customerid from orders where year(orderdate) = 1997  
+except   -- poza
+select customerid from orders where year(orderdate) = 1996
+
