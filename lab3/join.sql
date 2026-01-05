@@ -185,3 +185,185 @@ select customerid from orders where year(orderdate) = 1997
 except   -- poza
 select customerid from orders where year(orderdate) = 1996
 
+
+-- 19.11.2025
+-- 1. Który ze spedytorów był najaktywniejszy w 1997 roku,
+-- podaj nazwę tego spedytora
+SELECT TOP 1 Shippers.CompanyName, COUNT(*) as OrdersCount
+FROM Orders
+JOIN Shippers
+    ON Shippers.ShipperID = Orders.ShipVia
+WHERE YEAR(Orders.OrderDate) = 1997
+GROUP BY ShipVia, Shippers.CompanyName
+ORDER BY OrdersCount DESC
+ 
+
+--2. Dla każdego zamówienia podaj wartość zamówionych produktów. 
+--Zbiór wynikowy powinien zawierać nr zamówienia, datę zamówienia, nazwę klienta 
+--oraz wartość zamówionych produktów
+SELECT Orders.OrderID, SUM(ROUND((1 - Discount)*UnitPrice*Quantity, 2)) AS price_paid, CompanyName, OrderDate
+FROM Orders
+         JOIN [Order Details]
+              ON Orders.OrderID = [Order Details].OrderID
+         JOIN [Customers]
+              ON Orders.CustomerID = Customers.CustomerID
+GROUP BY Orders.OrderID, CompanyName, OrderDate
+
+--3. Dla każdego zamówienia podaj jego pełną wartość (wliczając opłatę za przesyłkę). 
+--Zbiór wynikowy powinien zawierać nr zamówienia, datę zamówienia, nazwę klienta oraz 
+--pełną wartość zamówienia
+
+
+SELECT Orders.OrderID, CAST(SUM((1 - Discount)*UnitPrice*Quantity)+Freight AS DECIMAL (10, 2)) AS total_price_paid, CompanyName, OrderDate
+FROM Orders
+         JOIN [Order Details]
+              ON Orders.OrderID = [Order Details].OrderID
+         JOIN [Customers]
+              ON Orders.CustomerID = Customers.CustomerID
+GROUP BY Orders.OrderID, CompanyName, Freight, OrderDate
+
+
+--Wybierz nazwy i numery telefonów klientów, którzy kupowali produkty  z kategorii ‘Confections’
+
+SELECT DISTINCT
+    Customers.CompanyName,
+    Customers.Phone
+FROM
+    Customers
+JOIN
+    Orders ON Customers.CustomerID = Orders.CustomerID
+JOIN
+    [Order Details] ON Orders.OrderID = [Order Details].OrderID
+JOIN
+    Products ON [Order Details].ProductID = Products.ProductID
+JOIN
+    Categories ON Products.CategoryID = Categories.CategoryID
+WHERE
+    Categories.CategoryName = 'Confections';
+
+-- 4.  Wybierz nazwy i numery telefonów klientów, którzy nie kupowali produktów z kategorii ‘Confections’
+SELECT
+    CompanyName,
+    Phone
+FROM
+    Customers
+WHERE
+    CustomerID NOT IN (
+        SELECT DISTINCT o.CustomerID
+        FROM Orders o
+        JOIN [Order Details] od ON o.OrderID = od.OrderID
+        JOIN Products p ON od.ProductID = p.ProductID
+        JOIN Categories c ON p.CategoryID = c.CategoryID
+        WHERE c.CategoryName = 'Confections'
+    );
+
+-- 4. alternatywne
+SELECT CompanyName, Phone
+FROM Customers
+EXCEPT
+SELECT Customers.CompanyName, Customers.Phone
+FROM Customers
+    JOIN Orders
+        ON Customers.CustomerID = Orders.CustomerID
+    JOIN [Order Details]
+        ON Orders.OrderID = [Order Details].OrderID
+    JOIN Products
+        ON [Order Details].ProductID = Products.ProductID
+    JOIN Categories
+        ON Products.CategoryID = Categories.CategoryID
+WHERE Categories.CategoryName = 'Confections'
+
+-- 5. Wybierz nazwy i numery telefonów klientów, którzy w 1997r nie kupowali produktów z kategorii ‘Confections’
+SELECT
+    Klienci.CompanyName,
+    Klienci.Phone
+FROM 
+    Customers AS Klienci
+LEFT JOIN
+    (
+        SELECT DISTINCT Orders.CustomerID
+        FROM Orders
+        JOIN [Order Details] ON Orders.OrderID = [Order Details].OrderID
+        JOIN Products ON [Order Details].ProductID = Products.ProductID
+        JOIN Categories ON Products.CategoryID = Categories.CategoryID
+        WHERE Categories.CategoryName = 'Confections'
+        AND YEAR(Orders.OrderDate) = 1997
+    ) AS KupiliSlodycze
+    ON Klienci.CustomerID = KupiliSlodycze.CustomerID
+WHERE
+    KupiliSlodycze.CustomerID IS NULL;  
+
+-- 5. alternatywne
+with kupilislodycze as (
+    SELECT DISTINCT Orders.CustomerID
+    FROM Orders
+    JOIN [Order Details] ON Orders.OrderID = [Order Details].OrderID
+    JOIN Products ON [Order Details].ProductID = Products.ProductID
+    JOIN Categories ON Products.CategoryID = Categories.CategoryID
+    WHERE Categories.CategoryName = 'Confections'
+    AND YEAR(Orders.OrderDate) = 1997
+)
+SELECT
+    Klienci.CompanyName,
+    Klienci.Phone
+FROM
+    Customers AS Klienci
+LEFT JOIN  kupilislodycze
+    ON Klienci.CustomerID = KupiliSlodycze.CustomerID
+WHERE
+    KupiliSlodycze.CustomerID IS NULL;
+
+
+-- dla każdego klienta podal lczbę zamówień z 97r które zawierały produkty z kat confections
+
+SELECT
+    Klienci.CompanyName,
+    Klienci.Phone
+FROM 
+    Customers AS Klienci
+LEFT JOIN
+    Orders O ON Klienci.CustomerID = O.CustomerID AND YEAR(O.OrderDate) = 1997
+LEFT JOIN
+    [Order Details] OD ON O.OrderID = OD.OrderID
+LEFT JOIN
+    Products P ON OD.ProductID = P.ProductID
+LEFT JOIN
+    Categories Cat ON P.CategoryID = Cat.CategoryID AND Cat.CategoryName = 'Confections'
+GROUP BY
+    Klienci.CustomerID, Klienci.CompanyName, Klienci.Phone
+HAVING
+    COUNT(Cat.CategoryID) = 0
+
+-- alternatywne
+
+SELECT DISTINCT
+    Klienci.CompanyName,
+    Klienci.Phone,
+    cat.CategoryID
+FROM
+    Customers AS Klienci
+LEFT JOIN
+    Orders O ON Klienci.CustomerID = O.CustomerID AND YEAR(O.OrderDate) = 1997
+LEFT JOIN
+    [Order Details] OD ON O.OrderID = OD.OrderID
+LEFT JOIN
+    Products P ON OD.ProductID = P.ProductID
+LEFT JOIN
+    Categories Cat ON P.CategoryID = Cat.CategoryID     
+
+WHERE
+    cat.CategoryID is null
+
+
+ -- Podaj nazwy klientów którzy w 1997r kupili co najmniej dwa różne produkty z kategorii
+-- 'Confections'
+SELECT CompanyName
+FROM Orders
+         JOIN [Order Details] ON Orders.OrderID = [Order Details].OrderID
+         JOIN Customers ON Orders.CustomerID = Customers.CustomerID
+         JOIN Products ON [Order Details].ProductID = Products.ProductID
+         JOIN Categories ON Products.CategoryID = Categories.CategoryID
+WHERE YEAR(OrderDate) = 1997
+  AND CategoryName = 'Confections'
+GROUP BY Orders.CustomerID, CompanyName
+HAVING COUNT(DISTINCT [Order Details].ProductID) > 1;
